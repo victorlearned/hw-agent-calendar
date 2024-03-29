@@ -1,12 +1,10 @@
-// src/app.js
-const Fastify = require('fastify');
+const fastify = require('fastify');
+const calendarRoutes = require('./routes/calendarRoutes');
 
 function build(opts = {}) {
-  const app = Fastify(opts);
-  
-  app.get('/', async (request, reply) => {
-    return { hello: 'world' };
-  });
+  const app = fastify(opts);
+
+  app.register(calendarRoutes);
 
   return app;
 }
