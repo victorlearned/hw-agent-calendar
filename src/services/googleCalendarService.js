@@ -7,6 +7,13 @@ function googleCalendarService() {
           { id: 'event-1', start: '2023-04-01T10:00:00Z', end: '2023-04-01T11:00:00Z', summary: 'Event 1' },
           { id: 'event-2', start: '2023-04-02T15:00:00Z', end: '2023-04-02T16:00:00Z', summary: 'Event 2' }
         ]
+      },
+      '456': { 
+        calendarId: 'calendar-456',
+        events: [
+          { id: 'event-1', start: '2023-04-01T10:00:00Z', end: '2023-04-01T11:00:00Z', summary: 'Event 1' },
+          { id: 'event-2', start: '2023-04-02T18:00:00Z', end: '2023-04-02T19:00:00Z', summary: 'Event 2' }
+        ]
       }
     };
   
