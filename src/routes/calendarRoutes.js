@@ -33,6 +33,7 @@ module.exports = async function (fastify, opts) {
   });
 
   // Find common available times across multiple agents' calendars
+  // TODO add extra body props for n times, [evenin, morning, afternoon] etc
   fastify.post('/agents/available-times/common', async (request, reply) => {
     // swapped from GET just for future flexibility. Not sure a group of agents
     // would ever use this to schedule a large gathering though. Seems like really 1:1 buyer : seller agent
