@@ -1,19 +1,36 @@
-const googleCalendarFactory = require('../services/googleCalendarService');
+const googleCalendarServiceFactory = require('../services/googleCalendarService');
 
-module.exports = async function (fastify, opts) {
-  const googleCalendarService = googleCalendarFactory();
+
+module.exports = async function (fastify, options) {
+  const { mockDynamodb } = options;
+  const googleCalendarService = googleCalendarServiceFactory();
 
   // Associate a new calendar with an existing agent
   fastify.post('/agents/:agentId/calendar', async (request, reply) => {
-    // Simulating the creation of a new calendar and association with the agentId
     const { agentId } = request.params;
-    const calendar = await googleCalendarService.getCalendarByAgentId(agentId);
-    if (!calendar) {
-      // TOOD: Logic to create and associate a calendar if it doesn't exist
-      // Just passing success for now
-      return reply.send({ message: `New calendar created and associated with agent ${agentId}` });
+    const { calendarId } = request.body;
+
+    if (!calendarId) {
+      return reply.status(400).send({ error: 'Calendar ID is required.' });
     }
-    return reply.send({ message: `A calendar already exists for agent ${agentId}` });
+    console.log('before google call ', calendarId);
+    // Verify if the calendar exists using googleCalendarService
+    const exists = await googleCalendarService.calendarExists(calendarId);
+
+    console.log('AFTER google call', exists);
+    if (!exists) {
+      return reply.status(404).send({ error: 'Calendar does not exist.' });
+    }
+
+    // Check if the agent already has a calendar associated
+    // Only allowing an agent to have 1 though could expand with smarter sortKey
+    if (mockDynamodb.has(agentId)) {
+      return reply.status(400).send({ error: `Agent ${agentId} already has a calendar associated.` });
+    }
+
+    // Associate the calendar with the agent
+    mockDynamodb.set(agentId, { calendarId });
+    return reply.send({ message: `Calendar ${calendarId} associated with agent ${agentId}` });
   });
 
   // Find available times in an agent's calendar

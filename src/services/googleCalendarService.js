@@ -1,4 +1,6 @@
-function googleCalendarService() {
+const { google } = require('googleapis');
+
+const googleCalendarServiceFactory = () => {
   // Hardcoded data for demonstration purposes
   const calendars = {
     '123': { // Assuming '123' is an agentId
@@ -16,6 +18,23 @@ function googleCalendarService() {
       ]
     }
   };
+    // Mock calendar data
+    const mockCalendars = new Map([
+      ['calendar-123', { summary: 'Calendar 1' }],
+      ['calendar-456', { summary: 'Calendar 2' }],
+    ]);
+  
+    async function calendarExists(calendarId) {
+      return mockCalendars.has(calendarId);
+    }
+  
+
+  const auth = new google.auth.GoogleAuth({
+    keyFile: 'path-to-your-service-account-file.json',
+    scopes: ['https://www.googleapis.com/auth/calendar'],
+  });
+
+  const calendarClient = google.calendar({ version: 'v3', auth });
 
   // using a mock for now unilt I get google api service account actually working
   // some reason it's not like my JWT I'm generating
@@ -50,6 +69,19 @@ function googleCalendarService() {
     return Promise.resolve(filteredResponse);
   }
 
+  // attempt to get real calls with api
+  // async function calendarExists(calendarId) {
+  //   try {
+  //     const calendar = await calendarClient.calendars.get({ calendarId });
+  //     return !!calendar;
+  //   } catch (error) {
+  //     if (error.code === 404) {
+  //       return false;
+  //     }
+  //     throw error;
+  //   }
+  // }
+
   async function getCalendarByAgentId(agentId) {
     return calendars[agentId] || null;
   }
@@ -75,6 +107,7 @@ function googleCalendarService() {
 
   // Exposing public API
   return {
+    calendarExists,
     getCalendarByAgentId,
     findAvailableTimes,
     addAppointment,
@@ -82,4 +115,4 @@ function googleCalendarService() {
   };
 }
 
-module.exports = googleCalendarService;
+module.exports = googleCalendarServiceFactory;

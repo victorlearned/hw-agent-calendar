@@ -3,6 +3,8 @@
 
 Assumptions:
 
+That an agentId is valid and that i'm not worrying about checking it's authenticity
+Not worrying about API auth
 An agent can only have 1 associated calendar
 Only allowing for google calendar integrations
 Only allow meetings of 30 or 1 hour time duratoins

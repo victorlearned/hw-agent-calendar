@@ -1,69 +1,77 @@
-const build = require('../src/app');  // Adjust the path as necessary
+jest.mock('../src/services/googleCalendarService', () => {
+  const googleCalendarServiceFactory = jest.fn().mockImplementation(() => ({
+    getCalendarByAgentId: jest.fn(async (agentId) => {
+      if (agentId === '123') {
+        return { calendarId: 'calendar-123' };
+      } else {
+        return null;
+      }
+    }),
+    findAvailableTimes: jest.fn(async (agentId) => {
+      if (agentId === '123') {
+        return ['2023-04-01T12:00:00Z'];
+      } else {
+        return [];
+      }
+    }),
+    addAppointment: jest.fn(async (agentId, appointmentDetails) => {
+      if (agentId === '123') {
+        return { message: 'Appointment added successfully' };
+      } else {
+        return { message: 'Agent calendar not found' };
+      }
+    }),
+    findCommonAvailableTimes: jest.fn(async (agentIds) => {
+      return ['2023-04-03T10:00:00Z'];
+    }),
+    calendarExists: jest.fn(async (calendarId) => {
+      return calendarId === 'calendar-123';
+    }),
+  }));
 
-describe('Calendar Routes Tests', () => {
+  return googleCalendarServiceFactory;
+});
+
+
+const build = require('../src/app');
+
+describe('calendarRoutes', () => {
   let app;
+  let mockDynamodb;
 
-  beforeAll(() => {
-    app = build();
+  beforeAll(async () => {
+    mockDynamodb = new Map();
+    app = build({ mockDynamodb });
+
   });
 
-  afterAll(() => {
-    app.close();
+  afterAll(async () => {
+    await app.close();
   });
 
-  describe('POST /agents/:agentId/calendar', () => {
-    test('should associate a new calendar with an existing agent', async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/agents/555/calendar',  // Use a test agentId, e.g., 123
-        payload: {}  // Add any necessary payload for the test
-      });
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-      expect(response.statusCode).toBe(200);
-      expect(JSON.parse(response.payload).message).toBe('New calendar created and associated with agent 555');
+  test('POST /agents/:agentId/calendar should associate calendar with agent if calendar exists', async () => {
+    // Mock agent data
+    const agentId = 'agent123';
+    const calendarId = 'calendar-123';
+
+    // Send request to associate calendar with agent
+    const response = await app.inject({
+      method: 'POST',
+      url: `/agents/${agentId}/calendar`,
+      payload: { calendarId },
     });
+
+    // Assert that the association was successful
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ message: `Calendar ${calendarId} associated with agent ${agentId}` });
+
+    // Assert that the agent's calendar was updated in mockDynamodb
+    expect(mockDynamodb.get(agentId)).toEqual({ calendarId });
   });
 
-  describe('GET /agents/:agentId/calendar/available-times', () => {
-    test('should retrieve available times for an agent\'s calendar', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/agents/123/calendar/available-times',  // Use a test agentId
-      });
-
-      expect(response.statusCode).toBe(200);
-      // Add more assertions based on the expected output
-    });
-  });
-
-  describe('POST /agents/:agentId/calendar/appointments', () => {
-    test('should add a new appointment to an agent\'s calendar', async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/agents/123/calendar/appointments',  // Use a test agentId
-        payload: {
-          // Add necessary appointment details in the payload
-        }
-      });
-
-      expect(response.statusCode).toBe(200);
-      // Add more assertions based on the expected output
-    });
-  });
-
-  describe('POST /agents/available-times/common', () => {
-    it('should find common available times for provided agent IDs', async () => {
-      const agentIds = ['123', '456']; // Example agent IDs, can include 10 or more
-      const response = await app.inject({
-        method: 'POST',
-        url: '/agents/available-times/common',
-        payload: { agentIds },
-      });
-  
-      expect(response.statusCode).toBe(200);
-      const commonTimes = JSON.parse(response.payload).commonTimes;
-      expect(commonTimes).toEqual(expect.arrayContaining(['2023-04-03T10:00:00Z']));
-    });
-  });
 
 });

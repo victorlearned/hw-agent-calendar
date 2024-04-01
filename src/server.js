@@ -1,6 +1,8 @@
 const build = require('./app');
 
-const app = build({ logger: true });
+const mockDynamodb = new Map();
+
+const app = build({ logger: true, mockDynamodb });
 
 const start = async () => {
   try {

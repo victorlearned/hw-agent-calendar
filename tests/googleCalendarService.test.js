@@ -1,29 +1,12 @@
-const googleCalendarService = require('../src/services/googleCalendarService')();
-// const { add, addMinutes, formatISO } = require('date-fns');
-
-// function generateBusyTestData(startDate, days) {
-//   let busySlots = [];
-//   let currentDate = new Date(startDate);
-
-//   for (let day = 0; day < days; day++) {
-//     for (let hour = 0; hour < 24; hour++) {
-//       let start = add(addMinutes(currentDate, day * 1440), hour * 60); // 1440 minutes in a day
-//       let end = addMinutes(start, 30); // 30-minute busy slot
-//       busySlots.push({ start: formatISO(start), end: formatISO(end) });
-//     }
-//   }
-
-//   return busySlots;
-// }
-
-// // Generate busy slots starting from midnight on 2024-04-01 for 2 days
-// const busySlots = generateBusyTestData("2024-04-01T00:00:00Z", 2);
-
-
-// console.log(busySlots);
-
+const googleCalendarServiceFactory = require('../src/services/googleCalendarService');
 
 describe('Google Calendar Service', () => {
+  let googleCalendarService;
+
+  beforeEach(() => {
+    googleCalendarService = googleCalendarServiceFactory();
+  });
+
   describe('getCalendarByAgentId', () => {
     it('should return the calendar for a given agent ID', async () => {
       const calendar = await googleCalendarService.getCalendarByAgentId('123');
