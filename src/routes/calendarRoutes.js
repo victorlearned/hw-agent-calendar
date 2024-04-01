@@ -1,6 +1,5 @@
 const googleCalendarServiceFactory = require('../services/googleCalendarService');
 
-
 module.exports = async function (fastify, options) {
   const { mockDynamodb } = options;
   const googleCalendarService = googleCalendarServiceFactory();
@@ -33,13 +32,33 @@ module.exports = async function (fastify, options) {
     return reply.send({ message: `Calendar ${calendarId} associated with agent ${agentId}` });
   });
 
-  // Find available times in an agent's calendar
-  // TODO update for range & time segments
-  fastify.get('/agents/:agentId/calendar/available-times', async (request, reply) => {
-    const { agentId } = request.params;
-    const availableTimes = await googleCalendarService.findAvailableTimes(agentId);
-    return reply.send({ agentId, availableTimes });
-  });
+/**
+ * POST /calendars/:calendarId/available-times
+ * Endpoint to find available times in a calendar.
+ * 
+ * @param {string} agentId - The ID of the agent whose availability is being queried.
+ * @param {string} queryStartTime - The start time of the query range (ISO 8601 format).
+ * @param {string} queryEndTime - The end time of the query range (ISO 8601 format).
+ * @param {number} meetingDuration - The duration of the meeting in minutes.
+ * @param {number} maxSlots - The maximum number of available slots to return.
+ * @param {string} partOfDay - (Optional) The part of the day to filter the available times ('morning', 'afternoon', 'evening').
+ * 
+ * @returns {Object} Response object containing the calendar ID and an array of available time slots.
+ */
+    fastify.post('/agents/:agentId/calendar/available-times', async (request, reply) => {
+      const { agentId } = request.params;
+      const { queryStartTime, queryEndTime, meetingDuration, maxSlots, partOfDay } = request.body;
+      //
+      if (mockDynamodb.has(agentId)) {
+        return reply.status(400).send({ error: `Agent ${agentId} already has a calendar associated.` });
+      }
+
+      const { calendarId } = mockDynamodb.get(agentId);
+
+      // Get busy slots from Google Calendar service
+      const freeSlots = await googleCalendarService.findAvailableTimes({calendarId, queryStartTime, queryEndTime, meetingDuration, maxSlots, partOfDay });
+      return reply.send({ agentId, freeSlots });
+    });
 
   // Add a new appointment to an agent's calendar
   fastify.post('/agents/:agentId/calendar/appointments', async (request, reply) => {
