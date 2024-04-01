@@ -2,12 +2,6 @@ const googleCalendarServiceFactory = require('../src/services/googleCalendarServ
 const freeBusyData = require('../mocks/example-freebusy.json');
 const calendarUtils = require('../src/utils/calendarUtils');
 
-// // Mocking the preprocessBusySlots and findFreeSlots functions
-// jest.mock('../src/utils/calendarUtils', () => ({
-//   preprocessBusySlots: jest.fn(),
-//   findFreeSlots: jest.fn()
-// }));
-
 jest.spyOn(calendarUtils, 'preprocessBusySlots');
 jest.spyOn(calendarUtils, 'findFreeSlots');
 
@@ -52,7 +46,7 @@ describe('Google Calendar Service', () => {
   
       // Call the function
       const result = await googleCalendarService.findAvailableTimes({
-        calendarId,
+        calendarIds: [calendarId],
         queryStartTime,
         queryEndTime,
         meetingDuration,
@@ -79,17 +73,32 @@ describe('Google Calendar Service', () => {
     });
   });
 
-  describe('addAppointment', () => {
-    it('should add an appointment and return a success message', async () => {
-      const result = await googleCalendarService.addAppointment('123', { summary: 'Test Appointment' });
-      expect(result).toHaveProperty('message', 'Appointment added successfully');
-    });
+  describe('addAppointmentToCalendars', () => {
+    it('should add appointment to calendars and return appointmentsAdded object', async () => {
+        // Mock calendarIds and appointmentDetails
+        const calendarIds = ['calendar-123', 'calendar-456'];
+        const appointmentDetails = {
+            summary: 'Meeting with John Doe',
+            start: {
+                dateTime: '2024-04-12T09:00:00Z',
+                timeZone: 'UTC'
+            },
+            end: {
+                dateTime: '2024-04-12T10:00:00Z',
+                timeZone: 'UTC'
+            }
+        };
 
-    it('should return an error message for an unknown agent ID', async () => {
-      const result = await googleCalendarService.addAppointment('unknown', { summary: 'Test Appointment' });
-      expect(result).toHaveProperty('message', 'Agent calendar not found');
+        // Call the function being tested
+        const result = await googleCalendarService.addAppointmentToCalendars(calendarIds, appointmentDetails);
+
+        // Expectations
+        expect(result).toEqual({
+            'calendar-123': appointmentDetails,
+            'calendar-456': appointmentDetails,
+        });
     });
-  });
+});
 
   describe('findCommonAvailableTimes', () => {
     it('should return common available times for provided agent IDs', async () => {

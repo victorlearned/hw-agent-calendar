@@ -7,29 +7,21 @@ const googleCalendarServiceFactory = () => {
   const calendars = {
     '123': { // Assuming '123' is an agentId
       calendarId: 'calendar-123',
-      events: [
-        { id: 'event-1', start: '2023-04-01T10:00:00Z', end: '2023-04-01T11:00:00Z', summary: 'Event 1' },
-        { id: 'event-2', start: '2023-04-02T15:00:00Z', end: '2023-04-02T16:00:00Z', summary: 'Event 2' }
-      ]
     },
     '456': {
       calendarId: 'calendar-456',
-      events: [
-        { id: 'event-1', start: '2023-04-01T10:00:00Z', end: '2023-04-01T11:00:00Z', summary: 'Event 1' },
-        { id: 'event-2', start: '2023-04-02T18:00:00Z', end: '2023-04-02T19:00:00Z', summary: 'Event 2' }
-      ]
     }
   };
-    // Mock calendar data
-    const mockCalendars = new Map([
-      ['calendar-123', { summary: 'Calendar 1' }],
-      ['calendar-456', { summary: 'Calendar 2' }],
-    ]);
-  
-    async function calendarExists(calendarId) {
-      return mockCalendars.has(calendarId);
-    }
-  
+  // Mock calendar data
+  const mockCalendars = new Map([
+    ['calendar-123', { summary: 'Calendar 1' }],
+    ['calendar-456', { summary: 'Calendar 2' }],
+  ]);
+
+  async function calendarExists(calendarId) {
+    return mockCalendars.has(calendarId);
+  }
+
 
   // const auth = new google.auth.GoogleAuth({
   //   keyFile: 'path-to-your-service-account-file.json',
@@ -37,41 +29,6 @@ const googleCalendarServiceFactory = () => {
   // });
 
   // const calendarClient = google.calendar({ version: 'v3', auth });
-
-  // using a mock for now unilt I get google api service account actually working
-  // some reason it's not like my JWT I'm generating
-  function freeBusy({ timeMin, timeMax, items }) {
-    // This function simulates the freeBusy query to Google Calendar API
-    // It returns hardcoded "busy" periods within the specified range for the given calendars
-
-    // Example response structure based on the real Google Calendar API response for freeBusy
-    // const exampleResponse = {
-    //   kind: "calendar#freeBusy",
-    //   timeMin: timeMin,
-    //   timeMax: timeMax,
-    //   calendars: {
-    //     'calendar-123': {
-    //       busy: [
-    //         { start: '2023-04-01T10:00:00Z', end: '2023-04-01T11:00:00Z' },
-    //         { start: '2023-04-02T15:00:00Z', end: '2023-04-02T16:00:00Z' }
-    //       ]
-    //     },
-    //   }
-    // };
-
-     
-
-    // Filter the response to only include requested calendars (items)
-    const filteredResponse = {
-      ...freeBusyData,
-      calendars: items.reduce((acc, item) => {
-        acc[item.id] = freeBusyData.calendars[item.id] || { busy: [] };
-        return acc;
-      }, {})
-    };
-
-    return Promise.resolve(filteredResponse);
-  }
 
   // attempt to get real calls with api
   // async function calendarExists(calendarId) {
@@ -86,34 +43,132 @@ const googleCalendarServiceFactory = () => {
   //   }
   // }
 
+  function filterByTimeRange(busyData, timeMin, timeMax) {
+    const minTime = new Date(timeMin);
+    const maxTime = new Date(timeMax);
+
+    const filteredBusy = busyData.filter(({ start, end }) => {
+      const startTime = new Date(start);
+      const endTime = new Date(end);
+
+      // Check if the event falls within the time range
+      return startTime >= minTime && endTime <= maxTime;
+    });
+
+    return filteredBusy;
+  }
+
+  // using a mock for now unilt I get google api service account actually working
+  // some reason it's not like my JWT I'm generating
+  function freeBusy({ timeMin, timeMax, items }) {
+    // This function simulates the freeBusy query to Google Calendar API
+    // It returns hardcoded "busy" periods within the specified range for the given calendars
+    // Filter the response to only include requested calendars (items)
+    // const filteredResponse = {
+    //   ...freeBusyData,
+    //   calendars: items.reduce((acc, item) => {
+    //     acc[item.id] = freeBusyData.calendars[item.id] || { busy: [] };
+    //     return acc;
+    //   }, {})
+    // };
+    const filteredResponse = {
+      ...freeBusyData,
+      calendars: items.reduce((acc, item) => {
+        acc[item.id] = {
+          busy: filterByTimeRange(freeBusyData.calendars[item.id]?.busy || [], timeMin, timeMax)
+        };
+        return acc;
+      }, {})
+    };
+
+    return Promise.resolve(filteredResponse);
+  }
+
   async function getCalendarByAgentId(agentId) {
     return calendars[agentId] || null;
   }
 
-  async function findAvailableTimes({calendarId, queryStartTime, queryEndTime, meetingDuration, maxSlots, partOfDay }) {
+  function mergeBusySlots(calendars) {
+    const mergedBusySlots = [];
+    for (const calendarId in calendars) {
+      const calendar = calendars[calendarId];
+      if (calendar && calendar.busy) {
+        mergedBusySlots.push(...calendar.busy);
+      }
+    }
+    return mergedBusySlots;
+  }
+
+  async function findAvailableTimes({ calendarIds, queryStartTime, queryEndTime, meetingDuration, maxSlots, partOfDay }) {
     const timeMin = queryStartTime;
     const timeMax = queryEndTime;
-    const items = [{ id: calendarId }];
-    
+    const items = calendarIds.map(calendarId => ({ id: calendarId }));
+
     // Call the mocked version of freeBusy function with the provided parameters
     const response = await freeBusy({ timeMin, timeMax, items }); // TODO create better mocks
-    //console.log('response findAvail ', response.calendars[calendarId].busy);
+
+    // pull out the busy and merge if multiple calendars were requested
+    const busyResponse = mergeBusySlots(response);
+
     // Preprocess busy slots to merge overlapping intervals
-    const mergedBusySlots = preprocessBusySlots(response.calendars[calendarId].busy);
-    //console.log('mergedBusySlots findAvail ', mergedBusySlots);
-    // Find free slots based on provided parameters
-    // (mergedBusySlots, queryStartTime, queryEndTime, meetingDuration, maxSlots, partOfDay = null)
-    const freeSlots = findFreeSlots({mergedBusySlots, queryStartTime, queryEndTime, meetingDuration, maxSlots, partOfDay});
-    //console.log('freeSlots findAvail ', freeSlots);
+    // const mergedBusySlots = preprocessBusySlots(response.calendars[calendarId].busy);
+    const mergedBusySlots = preprocessBusySlots(busyResponse);
+
+    // Find free slots
+    const freeSlots = findFreeSlots({ mergedBusySlots, queryStartTime, queryEndTime, meetingDuration, maxSlots, partOfDay });
+
     return freeSlots;
   }
 
-  async function addAppointment(agentId, appointmentDetails) {
-    if (calendars[agentId]) {
-      calendars[agentId].events.push(appointmentDetails);
-      return { message: 'Appointment added successfully', appointmentDetails };
+  function createCalendar() {
+    // Return the mocked methods for inserting events and fetching events
+    return {
+      events: {
+        insert: (params) => {
+          const { calendarId, requestBody } = params;
+          // addAppointmentToCalendar(calendarId, requestBody);
+          return Promise.resolve({ data: requestBody });
+        }
+      },
+    };
+  }
+
+  //      const calendarIds = ['calendar-123', 'calendar-456'];
+  // const appointmentDetails = {
+  //   summary: 'Meeting with John Doe',
+  //   start: {
+  //       dateTime: '2024-04-12T09:00:00Z',
+  //       timeZone: 'UTC'
+  //   },
+  //   end: {
+  //       dateTime: '2024-04-12T10:00:00Z',
+  //       timeZone: 'UTC'
+  //   }
+  // };
+
+  async function addAppointmentToCalendars(calendarIds, appointmentDetails) {
+    try {
+
+      // mocking google api
+      const calendar = createCalendar();
+
+      // Iterate over each calendarId and add the appointment
+      const appointmentsAdded = {};
+      for (const calendarId of calendarIds) {
+        // Simulate adding the appointment to the calendar
+        const response = await calendar.events.insert({
+          calendarId,
+          requestBody: appointmentDetails
+        });
+
+        // Store the response in the appointmentsAdded object
+        appointmentsAdded[calendarId] = response.data;
+      }
+
+      return appointmentsAdded;
+    } catch (error) {
+      throw new Error(`Error adding appointment to calendars: ${error.message}`);
     }
-    return { message: 'Agent calendar not found' };
   }
 
   async function findCommonAvailableTimes(agentIds) {
@@ -125,7 +180,7 @@ const googleCalendarServiceFactory = () => {
     calendarExists,
     getCalendarByAgentId,
     findAvailableTimes,
-    addAppointment,
+    addAppointmentToCalendars,
     findCommonAvailableTimes,
   };
 }

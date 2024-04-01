@@ -55,7 +55,7 @@ describe('calendarRoutes', () => {
 
   test('POST /agents/:agentId/calendar should associate calendar with agent if calendar exists', async () => {
     // Mock agent data
-    const agentId = 'agent123';
+    const agentId = '123';
     const calendarId = 'calendar-123';
 
     // Send request to associate calendar with agent

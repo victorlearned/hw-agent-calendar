@@ -108,8 +108,6 @@ describe('preprocessBusySlots', () => {
 });
 
 describe('findFreeSlots', () => {
-
-
   test('should freeBusyData', () => {
     const mergedBusySlots = [
       { "start": "2024-03-31T14:30:00Z", "end": "2024-03-31T15:30:00Z" },
@@ -153,7 +151,7 @@ describe('findFreeSlots', () => {
     const meetingDuration = 15;
     const maxSlots = 5;
     const partOfDay = 'morning';
-    const freeSlots = findFreeSlots({mergedBusySlots, queryStartTime, queryEndTime, meetingDuration, maxSlots});
+    const freeSlots = findFreeSlots({mergedBusySlots, queryStartTime, queryEndTime, meetingDuration, maxSlots, partOfDay});
     console.log(freeSlots);
     expect(freeSlots).toEqual([
       {
