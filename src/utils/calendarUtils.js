@@ -9,6 +9,7 @@ const {
   setMinutes,
   isWithinInterval,
   addMinutes,
+  set,
 } = require('date-fns');
 
 // Define time ranges for different parts of the day
@@ -58,66 +59,61 @@ function preprocessBusySlots(busySlots) {
   return mergedSlots;
 }
 
+/**
+ * Function to set hours and minutes in UTC
+ * 
+ * @param {Date} date - The date to be adjusted.
+ * @param {number} hours - The hours to be set (in UTC).
+ * @param {number} minutes - The minutes to be set (in UTC).
+ * @returns {Date} - The adjusted date in UTC.
+ */
+function setUTCHoursAndMinutes(date, hours, minutes) {
+  // Adjust the date for the timezone offset to treat it as UTC
+  let adjustedDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+  // Set the specified hours and minutes
+  adjustedDate = set(adjustedDate, { hours, minutes });
+  // Convert back to UTC by subtracting the timezone offset
+  adjustedDate.setMinutes(adjustedDate.getMinutes() - adjustedDate.getTimezoneOffset());
+  return adjustedDate;
+}
+
+// Main function to find free slots
 function findFreeSlots({mergedBusySlots, queryStartTime, queryEndTime, meetingDuration, maxSlots, partOfDay = null}) {
   let freeSlots = [];
-  let lastEndTime = new Date(queryStartTime);
-  let slotsFound = 0;
+  // Parse the start time as an ISO string to a Date object
+  let lastEndTime = parseISO(queryStartTime);
+  let slotsFound = 0; // Counter for the found slots
 
-  console.log('lastEndTime At START ', lastEndTime);
-  // Check if a part of the day is specified and valid. If not, no time-of-day filter will be applied.
+  // Get the time of day filter if partOfDay is specified
   const timeOfDayFilter = partOfDay && dayParts[partOfDay];
 
-  const isInsidePartOfDay = !isWithinInterval(lastEndTime, {
-    start: setHours(setMinutes(new Date(lastEndTime), 0), timeOfDayFilter.startHour),
-    end: setHours(setMinutes(new Date(lastEndTime), 0), timeOfDayFilter.endHour)
-  });
-
-  console.log('isInsidePartOfDay  ', isInsidePartOfDay);
-
-  // Adjust lastEndTime if the query start time is not within the specified part of the day
-  if (timeOfDayFilter && !isWithinInterval(lastEndTime, {
-    start: setHours(setMinutes(new Date(lastEndTime), 0), timeOfDayFilter.startHour),
-    end: setHours(setMinutes(new Date(lastEndTime), 0), timeOfDayFilter.endHour)
-  })) {
-    // Find the next valid part of the day after the query start time
-    const nextPartOfDay = Object.keys(dayParts).find(key => dayParts[key].startHour >= lastEndTime.getHours());
-    console.log('nextPartOfDay ', nextPartOfDay );
-    if (nextPartOfDay) {
-      // Set lastEndTime to the start of the next valid part of the day
-      lastEndTime = setHours(setMinutes(new Date(lastEndTime), 0), dayParts[nextPartOfDay].startHour);
-    } else {
-      // No valid part of the day found, return empty slots
-      return freeSlots;
-    }
-  }
-
-  // Iterate over each busy slot to identify potential free slots
+  // Iterate over each busy slot to find potential free slots
   for (const slot of mergedBusySlots) {
-    // Stop if the desired number of free slots has been found
+    // Stop if the maximum number of desired slots has been found
     if (slotsFound >= maxSlots) break;
 
-    // Start time of the current busy slot
+    // Parse the start time of the current busy slot
     const start = parseISO(slot.start);
 
-    // If there is enough time between the last end time and the start of the current busy slot
+    // Check if there's enough time between the last end time and the current slot's start
     if (differenceInMinutes(start, lastEndTime) >= meetingDuration) {
-      // Set potential start and end times for the free slot
+      // Initialize potential start and end times for a free slot
       let potentialStart = lastEndTime;
       let potentialEnd = addMinutes(potentialStart, meetingDuration);
 
-      // If a time-of-day filter is specified, adjust the potential start and end times accordingly
+      // If a time-of-day filter is specified, adjust the start and end times
       if (timeOfDayFilter) {
-        // Adjust the potential start time to the later of the last end time or the start of the part of day
-        potentialStart = max([lastEndTime, setMinutes(setHours(lastEndTime, timeOfDayFilter.startHour), 0)]);
-        // Calculate the potential end time based on the adjusted start time
+        // Adjust the start time to the later of the last end time or the start of the day part
+        potentialStart = max([lastEndTime, setUTCHoursAndMinutes(lastEndTime, timeOfDayFilter.startHour, 0)]);
+        // Recalculate the potential end time
         potentialEnd = addMinutes(potentialStart, meetingDuration);
 
-        // Check if the potential slot fits within the specified part of day
+        // Check if the potential slot fits within the day part boundaries
         if (!isWithinInterval(potentialStart, {
-          start: setMinutes(setHours(potentialStart, timeOfDayFilter.startHour), 0),
-          end: setMinutes(setHours(potentialStart, timeOfDayFilter.endHour), 0)
-        }) || !isBefore(potentialEnd, setMinutes(setHours(potentialStart, timeOfDayFilter.endHour), 0))) {
-          // If the slot doesn't fit within the part of day, skip to the next iteration
+          start: setUTCHoursAndMinutes(potentialStart, timeOfDayFilter.startHour, 0),
+          end: setUTCHoursAndMinutes(potentialStart, timeOfDayFilter.endHour, 0)
+        }) || !isBefore(potentialEnd, setUTCHoursAndMinutes(potentialStart, timeOfDayFilter.endHour, 0))) {
+          // If not, skip to the next iteration
           continue;
         }
       }
@@ -127,10 +123,10 @@ function findFreeSlots({mergedBusySlots, queryStartTime, queryEndTime, meetingDu
         break;
       }
 
-      // If the potential slot is long enough to accommodate the meeting, add it to the free slots list
+      // If the slot is long enough, add it to the list of free slots
       if (differenceInMinutes(potentialEnd, potentialStart) >= meetingDuration) {
         freeSlots.push({ start: potentialStart.toISOString(), end: potentialEnd.toISOString() });
-        slotsFound++;  // Increment the count of found free slots
+        slotsFound++; // Increment the count of found slots
       }
     }
 
@@ -141,7 +137,5 @@ function findFreeSlots({mergedBusySlots, queryStartTime, queryEndTime, meetingDu
   // Return the list of identified free slots
   return freeSlots;
 }
-
-
 
 module.exports = { findFreeSlots, preprocessBusySlots };

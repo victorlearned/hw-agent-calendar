@@ -194,7 +194,8 @@ describe('findFreeSlots', () => {
     const freeSlots = findFreeSlots({mergedBusySlots, queryStartTime: "2024-04-01T00:00:00Z", queryEndTime: "2024-04-03T00:00:00Z",meetingDuration: 15, maxSlots: 10, partOfDay: 'morning'});
     expect(freeSlots.length).toBeLessThanOrEqual(10);
     freeSlots.forEach(slot => {
-      const startHour = new Date(slot.start).getHours();
+      // const startHour = new Date(slot.start).getHours();
+      const startHour = new Date(slot.start).getUTCHours();
       expect(startHour).toBeGreaterThanOrEqual(6);
       expect(startHour).toBeLessThan(12);
       expect(new Date(slot.end) - new Date(slot.start)).toBe(15 * 60 * 1000);
@@ -207,7 +208,8 @@ describe('findFreeSlots', () => {
     const freeSlots = findFreeSlots({mergedBusySlots, queryStartTime: "2024-04-01T00:00:00Z", queryEndTime: "2024-04-03T00:00:00Z", meetingDuration:60, maxSlots: 10, partOfDay: 'afternoon'});
     expect(freeSlots.length).toBeLessThanOrEqual(10);
     freeSlots.forEach(slot => {
-      const startHour = new Date(slot.start).getHours();
+      // const startHour = new Date(slot.start).getHours();
+      const startHour = new Date(slot.start).getUTCHours();
       expect(startHour).toBeGreaterThanOrEqual(12);
       expect(startHour).toBeLessThan(18);
       expect(new Date(slot.end) - new Date(slot.start)).toBe(60 * 60 * 1000);
